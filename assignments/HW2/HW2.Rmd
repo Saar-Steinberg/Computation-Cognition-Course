@@ -50,25 +50,25 @@ data <- read.csv("LearningData.csv")
 ```
 
 ::: {style="direction: rtl; text-align: right;"}
-# מבוא
+# Introduction
 
-במטלה זו ננתח את הנתונים עליהם עבדנו בתרגולים האחרונים, המאפיינים שתי קבוצות: Reactive ו-Conservative.
+This assignment analyzes course data describing two groups: Reactive and Conservative.
 
-המטרה שלנו היא לבנות מודל מתמטי שמתאר את התנהגותם ולבדוק האם הוא אכן טוב יותר.
+The goal is to build a mathematical model of their behavior and evaluate its performance.
 :::
 
 ::: {style="direction: rtl; text-align: right;"}
-# חלק 1: חקירה ויזואלית
+# Part 1: Exploratory Analysis
 
-## משימה 1: יצירת עקומות למידה
+## Task 1: Learning Curves
 
-לפני שנגיע לחישובים המתמטיים, נתחיל בבחינת הנתונים שלנו (EDA).
+Begin with exploratory data analysis (EDA) before fitting the models.
 
-הציגו גרף המתאר את ההסתברות לבחור ב"אופציה 1" לאורך 60 הצעדים.
+Plot the probability of choosing option 1 across 60 trials.
 
-שימו לב לחשב את הממוצע של כל Trial בנפרד לכל קבוצה ולהציג אותן כשני קווים שונים.
+Calculate the mean for each trial within each group and display the groups as two separate lines.
 
-לנוחותכם, ניתן להוסיף עוד בדיקות EDA ככל שתרצו כדי להבין היטב את הנתונים טרם תחילת התרגיל (הדפסות, וויזואליזציות וכו')
+Additional summaries and visualizations may help clarify the dataset before modeling.
 
 ```{r}
 head(data) # A check that everything was loaded currectly
@@ -94,18 +94,18 @@ ggplot(learning_curve_data, aes(x = Trial, y = prob_choice1, color = AgentType))
 :::
 
 ::: {style="direction: rtl; text-align: right;"}
-# חלק 2: הבנת ה-Likelihood
+# Part 2: Understanding Likelihood
 
-חלק זה משלב את הלוגיקה מהתרגיל המקורי כדי להמחיש איך המחשב "רואה" את הפרמטרים.
+This section illustrates how model parameters determine the likelihood of observed behavior.
 
-## משימה 2: השלמת "מנוע" המודל
+## Task 2: Implementing the Model
 
-ה-Likelihood הוא הציון שהמודל מקבל על מידת ההפתעה מבחירת הנבדק.
+Likelihood measures how well the model accounts for the observed choices.
 
-עליכם להשלים את הלוגיקה בתוך הלולאה של פונקציית ה-RL_model
+Complete the loop in the RL_model function:
 
-1.  חשבו את הסתברות הבחירה לפי נוסחת ה-Softmax
-2.  עדכנו את ערך ה-Q של האופציה שנבחרה לפי חוק דלתא
+1. Calculate choice probabilities using softmax.
+2. Update the selected option's Q value using the delta rule.
 
 ```{r}
 RL_model = function(data, par) {
@@ -141,13 +141,13 @@ RL_model = function(data, par) {
 :::
 
 ::: {style="direction: rtl; text-align: right;"}
-# חלק 3: השוואת מודלים
+# Part 3: Model Comparison
 
-## משימה 3: אמינות המודל (BIC)
+## Task 3: Comparing Models with BIC
 
-נשתמש ב-BIC כדי לבדוק האם מודל ה-RL באמת מתאים יותר ממודל שפשוט מנחש באקראי (Null Model).
+Use BIC to compare the reinforcement-learning model with a null model that chooses randomly.
 
-חשבו BIC עבור שני המודלים עבור קבוצת ה-Reactive
+Calculate BIC for both models using the Reactive group.
 
 ```{r}
 # Filtering the data - count only "Reactive group"
@@ -186,15 +186,15 @@ print(paste("Difference (Null - RL):", round(diff, 2)))
 :::
 
 ::: {style="direction: rtl; text-align: right;"}
-# חלק 4: Model Recovery
+# Part 4: Model Recovery
 
-## משימה 4: האם ניתן לסמוך על המודל?
+## Task 4: Can the Model Be Recovered?
 
-לפני שאנחנו קובעים מסקנות על נבדקים אמיתיים, עלינו לוודא שאם היינו יודעים את "האמת" המודל שלנו היה מצליח לזהות אותה. זה תהליך שנקרא **Model Recovery.**
+Before drawing conclusions about real participants, test whether the analysis can identify a known data-generating model. This is **model recovery**.
 
-1.  סימולציה: צרו נבדק מדומה. השתמשו בפרמטרים ידועים מראש (למשל אלפא=0.3 ובטא=3) כדי לייצר 100 צעדים של בחירות ותגמולים
-2.  אמידה: הריצו את ה-optim שלכם על הנתונים המדומים
-3.  השוואה: חשבו BIC עבור מודל ה-RL ועבור מודל ה-Null על הנתונים המדומים. האם ה-BIC הצליח לשחזר את האמת?
+1. Simulation: generate 100 choices and rewards for a simulated agent using known parameters, such as alpha = 0.3 and beta = 3.
+2. Estimation: run optim on the simulated data.
+3. Comparison: calculate BIC for the RL and null models. Does BIC recover the generating model?
 
 ```{r}
 # Creating a function that simulates an agent
@@ -258,11 +258,11 @@ if (bic_rl_sim < bic_null_sim) {
 :::
 
 ::: {style="direction: rtl; text-align: right;"}
-# חלק 5: סיכום ומסקנות
+# Part 5: Summary and Conclusions
 
-1.  **פרשנות ה-BIC:** אם קיבלתם הפרש BIC הגדול מ-10 לטובת מודל ה-RL, מהי המסקנה שלכם לגבי הלמידה של קבוצת ה-Reactive?
-2.  **השוואה בין קבוצות**: בהתבסס על הניתוח שערכתם, באיזו קבוצה המודל "בטוח" יותר בתוצאות שלו? הסבירו בקצרה.
-3.  **אימות**: האם ה-Model Recovery הצליח? מה המשמעות של ההצלחה הזו?
+1. **BIC interpretation:** What does a BIC difference greater than 10 in favor of RL suggest about learning in the Reactive group?
+2. **Group comparison:** For which group does the analysis provide stronger evidence? Briefly explain.
+3. **Validation:** Did model recovery succeed, and what does that imply?
 
-**בהצלחה!** 🙂
+**Good luck!**
 :::
