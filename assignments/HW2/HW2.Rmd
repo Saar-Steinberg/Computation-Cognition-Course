@@ -1,0 +1,268 @@
+---
+title: "HW2_Reinforcement Learning"
+subtitle: "Computational and Cognitive Sciences - Winter 2025"
+author: " Saar Steinberg "
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+lang: he
+---
+
+```{=html}
+<style type="text/css">
+  body {
+    direction: rtl;
+    text-align: right;
+    margin-left: 300px; 
+    font-family: 'Assistant', sans-serif;
+  }
+  #TOC {
+    position: fixed;
+    left: 20px;      
+    right: auto;
+    top: 50px;
+    width: 250px;
+    direction: rtl; 
+    text-align: right;
+    border: none;
+  }
+  .main-container {
+    max-width: 900px;
+    margin-right: 20px;
+    margin-left: auto;
+  }
+  code, pre {
+    direction: rtl;
+    display: left;
+  }
+</style>
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#Loading all relevant libraries
+library(ggplot2)
+library(dplyr)
+#Loading the data from the csv 
+data <- read.csv("LearningData.csv")
+```
+
+::: {style="direction: rtl; text-align: right;"}
+# מבוא
+
+במטלה זו ננתח את הנתונים עליהם עבדנו בתרגולים האחרונים, המאפיינים שתי קבוצות: Reactive ו-Conservative.
+
+המטרה שלנו היא לבנות מודל מתמטי שמתאר את התנהגותם ולבדוק האם הוא אכן טוב יותר.
+:::
+
+::: {style="direction: rtl; text-align: right;"}
+# חלק 1: חקירה ויזואלית
+
+## משימה 1: יצירת עקומות למידה
+
+לפני שנגיע לחישובים המתמטיים, נתחיל בבחינת הנתונים שלנו (EDA).
+
+הציגו גרף המתאר את ההסתברות לבחור ב"אופציה 1" לאורך 60 הצעדים.
+
+שימו לב לחשב את הממוצע של כל Trial בנפרד לכל קבוצה ולהציג אותן כשני קווים שונים.
+
+לנוחותכם, ניתן להוסיף עוד בדיקות EDA ככל שתרצו כדי להבין היטב את הנתונים טרם תחילת התרגיל (הדפסות, וויזואליזציות וכו')
+
+```{r}
+head(data) # A check that everything was loaded currectly
+
+# Cluster all the data by groups(Conservative / Reactive) and trials (1-60), then calculate their mean - when we use 0/1 - the mean is also the probability to choose option 1
+learning_curve_data <- data %>%
+  group_by(AgentType, Trial) %>%
+  summarise(prob_choice1 = mean(choicenum), .groups = 'drop')
+
+# Visualize the probabilitiy to choose option 1 - by groups
+ggplot(learning_curve_data, aes(x = Trial, y = prob_choice1, color = AgentType)) +
+  geom_line(size = 1.2) +              
+  geom_point(alpha = 0.4, size = 1) +  
+  theme_minimal() +                    
+  labs(title = "Learning Curves: Reactive vs Conservative",
+       x = "Trial Number",
+       y = "Probability of Choosing Option 1",
+       color = "Group Type") +
+  scale_y_continuous(limits = c(0, 1)) # Limit- 0<=y<=1
+
+
+```
+:::
+
+::: {style="direction: rtl; text-align: right;"}
+# חלק 2: הבנת ה-Likelihood
+
+חלק זה משלב את הלוגיקה מהתרגיל המקורי כדי להמחיש איך המחשב "רואה" את הפרמטרים.
+
+## משימה 2: השלמת "מנוע" המודל
+
+ה-Likelihood הוא הציון שהמודל מקבל על מידת ההפתעה מבחירת הנבדק.
+
+עליכם להשלים את הלוגיקה בתוך הלולאה של פונקציית ה-RL_model
+
+1.  חשבו את הסתברות הבחירה לפי נוסחת ה-Softmax
+2.  עדכנו את ערך ה-Q של האופציה שנבחרה לפי חוק דלתא
+
+```{r}
+RL_model = function(data, par) {
+  # Creating a vector of parameters (alpha and beta)
+  beta  = par[1] 
+  alpha = par[2] 
+  choice = data$choicenum + 1
+  reward = data$reward
+  Q = c(0.5, 0.5) # Assuming that both options have the same probability
+  Pchoice = rep(0.5, length(choice)) # Creating a vector at the length of the number of choices. We will update the 0.5 values during the for loop
+  
+  for (t in 1:length(choice)) {
+    # Calculating the probabilities for every option using softmax
+    exps <- exp(beta * Q)
+    probabilities <- exps / sum(exps)
+    
+    t_choice <- choice[t] # Getting the choice of the subject (1 / 2)
+    t_reward <- reward[t] # Getting the reward of the subject after he chose one option (0 /1)
+    
+    # Updating the probabilities in Pchoice
+    Pchoice[t] <- probabilities[t_choice] 
+    
+    # Calculating the prediction error
+    PE <- t_reward - Q[t_choice]
+    
+    #Updating Q value
+    Q[t_choice] <- Q[t_choice] + alpha * PE
+  
+    }
+  return(-sum(log(Pchoice + 1e-10)))
+}
+```
+:::
+
+::: {style="direction: rtl; text-align: right;"}
+# חלק 3: השוואת מודלים
+
+## משימה 3: אמינות המודל (BIC)
+
+נשתמש ב-BIC כדי לבדוק האם מודל ה-RL באמת מתאים יותר ממודל שפשוט מנחש באקראי (Null Model).
+
+חשבו BIC עבור שני המודלים עבור קבוצת ה-Reactive
+
+```{r}
+# Filtering the data - count only "Reactive group"
+reactive_data <- subset(data, AgentType == "Reactive")
+
+# Creating null model - means, probabilities will always be 0.5 for each step
+n <- nrow(reactive_data) # Getting the number of steps
+null_nll <- -sum(log(rep(0.5, n)))
+
+# Calculate the BIC for the null model
+k_null <- 0 # Number of free parameters in this model (obviously 0)
+bic_null <- 2 * null_nll + k_null * log(n)
+
+
+# Running the RL model using the function we built in sector 2
+init_par <- c(1, 0.5) # beta = 1, alpha = 0.5 (this is a random guess)
+
+# Running the optim function and getting the best result
+res <- optim(par = init_par, fn = RL_model, data = reactive_data)
+rl_nll <- res$value
+
+# Calculating the BIC for RL model
+k_rl <- 2 # Two free parameters, alpha and beta
+bic_rl <- 2 * rl_nll + k_rl * log(n)
+
+
+print(paste("Null Model BIC:", round(bic_null, 2)))
+print(paste("RL Model BIC:  ", round(bic_rl, 2)))
+
+# Checking who got the lowest score, means, who won
+diff <- bic_null - bic_rl
+print(paste("Difference (Null - RL):", round(diff, 2)))
+
+
+```
+:::
+
+::: {style="direction: rtl; text-align: right;"}
+# חלק 4: Model Recovery
+
+## משימה 4: האם ניתן לסמוך על המודל?
+
+לפני שאנחנו קובעים מסקנות על נבדקים אמיתיים, עלינו לוודא שאם היינו יודעים את "האמת" המודל שלנו היה מצליח לזהות אותה. זה תהליך שנקרא **Model Recovery.**
+
+1.  סימולציה: צרו נבדק מדומה. השתמשו בפרמטרים ידועים מראש (למשל אלפא=0.3 ובטא=3) כדי לייצר 100 צעדים של בחירות ותגמולים
+2.  אמידה: הריצו את ה-optim שלכם על הנתונים המדומים
+3.  השוואה: חשבו BIC עבור מודל ה-RL ועבור מודל ה-Null על הנתונים המדומים. האם ה-BIC הצליח לשחזר את האמת?
+
+```{r}
+# Creating a function that simulates an agent
+simulate_agent <- function(N, alpha, beta){
+  Q <- c(0.5, 0.5) # Initializing the probabilities
+  
+  sim_data <- data.frame(choicenum = numeric(N), reward = numeric(N)) 
+  
+  for(t in 1:N){
+    # Calculating the probabilities
+    exps <- exp(beta * Q)
+    probabilities <- exps / sum(exps)
+    
+    # Choosing 1 or 2 (considering the probabilities)
+    choice <- sample(1:2, 1, prob = probabilities) 
+    
+    # Getting the reward
+    reward_probs <- c(0.75, 0.25)
+    reward <- rbinom(1, 1, reward_probs[choice]) 
+    
+    #Updating the values
+    PE <- reward - Q[choice]
+    Q[choice] <- Q[choice] + alpha * PE
+    
+    sim_data$choicenum[t] <- choice - 1 # -1 so we will have 0/1s instead of 1/2s
+    sim_data$reward[t] <- reward
+  }
+  return(sim_data)
+}
+
+# Running the simulation
+true_alpha <- 0.3
+true_beta <- 3
+synthetic_data <- simulate_agent(N = 100, alpha = true_alpha, beta = true_beta) 
+
+
+# Calculating BIC for null model
+null_nll_sim <- -sum(log(rep(0.5, 100)))
+bic_null_sim <- 2 * null_nll_sim + 0 * log(100)
+
+# Running optim and then calculating BIC for RL model
+res_sim <- optim(par = c(1, 0.5), fn = RL_model, data = synthetic_data)
+rl_nll_sim <- res_sim$value
+bic_rl_sim <- 2 * rl_nll_sim + 2 * log(100)
+
+# Showing the results
+print(paste("Simulated Null BIC:", round(bic_null_sim, 2)))
+print(paste("Simulated RL BIC:  ", round(bic_rl_sim, 2)))
+
+if (bic_rl_sim < bic_null_sim) {
+  print("GREAT")
+} else {
+  print("****")
+}
+
+
+
+
+
+```
+:::
+
+::: {style="direction: rtl; text-align: right;"}
+# חלק 5: סיכום ומסקנות
+
+1.  **פרשנות ה-BIC:** אם קיבלתם הפרש BIC הגדול מ-10 לטובת מודל ה-RL, מהי המסקנה שלכם לגבי הלמידה של קבוצת ה-Reactive?
+2.  **השוואה בין קבוצות**: בהתבסס על הניתוח שערכתם, באיזו קבוצה המודל "בטוח" יותר בתוצאות שלו? הסבירו בקצרה.
+3.  **אימות**: האם ה-Model Recovery הצליח? מה המשמעות של ההצלחה הזו?
+
+**בהצלחה!** 🙂
+:::

@@ -1,0 +1,58 @@
+---
+title: "EX6_"
+output: html_document
+date: "2025-12-07"
+---
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+## Defining the parameters
+n_students <- 18
+n_months <- 10
+drift <- 0.05
+variation <- 0.12
+
+## Generating initial test results
+initial_scores <- rnorm(n_students, mean = 0, sd = 0.1) 
+
+## Creating a matrix of changes for every student per
+monthly_changes <- matrix(rnorm(n_students * n_months, mean = drift, sd = variation), 
+                          nrow = n_months, ncol = n_students)
+
+## Adding the initial scores to the matrix
+scores <- rbind(initial_scores, monthly_changes)
+
+## Using cumulative sum for each column in our matrix
+cumulative_scores <- apply(scores, 2, cumsum)
+
+## Add the timeline (0-10 months)
+months <- 0:n_months
+
+
+## "Casting" to data frame 
+scores_df <- as.data.frame(cumulative_scores)
+scores_df$Month <- months
+scores_long <- pivot_longer(scores_df, cols = -Month, names_to = "Student", values_to = "Score")
+
+## Creating the first graph: X = month, Y = test score
+p1 <- ggplot(scores_long, aes(x = Month, y = Score, group = Student, color = Student)) +
+  geom_line() +
+  labs(title = "Student Progress Over 10 Months", 
+       y = "Test Score (Cumulative)", x = "Month") +
+  theme_minimal() +
+  theme(legend.position = "none") 
+
+# Creating the second graph - A Histogram for test scores
+final_scores <- cumulative_scores[nrow(cumulative_scores), ]
+p2 <- ggplot(data.frame(Score = final_scores), aes(x = Score)) +
+  geom_histogram(binwidth = 0.2, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Final Scores (Month 10)", 
+       y = "Count", x = "Final Score") +
+  theme_minimal()
+
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 2)
+```
+

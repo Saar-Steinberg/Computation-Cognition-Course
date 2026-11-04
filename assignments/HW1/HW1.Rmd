@@ -1,0 +1,253 @@
+---
+title: 'Homework 4: The Drift Diffusion Model (DDM) & Simulations'
+author: "Computational and Cognitive Sciences - Winter 2025"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+##Introduction##
+In our last lecture and tutorial, we explored the Drift Diffusion Model (DDM).
+This model posits that decision-making is a noisy process of accumulating evidence over time until a specific threshold is reached.
+
+In this assignment, you will step into the shoes of a researcher. 
+You will use R code to simulate "virtual subjects," manipulate their "cognitive brain" (the model parameters), and observe how these changes affect observable behavior (Reaction Times and Accuracy).
+
+This assignment relies on the skills you acquired in previous lessons combined with your theoretical understanding of the DDM.
+
+#The Task: Random Dot Motion (RDM)#
+Imagine a perceptual decision-making experiment where subjects must decide if a cloud of dots is moving Right (Positive response, +1) or Left (Negative response, -1).
+
+
+##Part 1: Setting Up the Environment
+
+#Task 1: Load the necessary libraries: 
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+
+#Task 2: Load the "Simulation Engine"
+Below is the simulate_ddm function we discussed in class. This function performs the Random Walk process. Run the following code block to make the function available for the rest of the assignment. You do not need to modify this code.
+```{r}
+simulate_ddm <- function(nreps, nsamples, drift, sddm, threshold, starting_point = 0) {
+  # Initialize vectors to store results
+  latencies <- numeric(nreps)
+  responses <- numeric(nreps)
+  
+  for (i in seq_len(nreps)) {
+    # Create the evidence path (random noise + drift)
+    evidence <- cumsum(c(starting_point, rnorm(nsamples, mean = drift, sd = sddm)))
+    
+    # Check: When did we cross a threshold (positive or negative)?
+    crossing_index <- which(abs(evidence) > threshold)[1]
+    
+    if (!is.na(crossing_index)) {
+      responses[i] <- sign(evidence[crossing_index]) # 1 = Right, -1 = Left
+      latencies[i] <- crossing_index                 # Reaction Time (RT)
+    } else {
+      responses[i] <- 0 # No decision reached within time limit
+      latencies[i] <- nsamples
+    }
+  }
+  # Return a data frame with the results
+  data.frame(responses = responses, latencies = latencies)
+}
+```
+
+##Part 2: The Effect of Task Difficulty (Drift Rate)
+We will compare two conditions: an Easy Task (dots clearly moving right) and a Hard Task (movement is almost random/ambiguous).
+
+#Task 3:
+Create an object named easy_task using the simulate_ddm function. Use the following parameters: 500 repetitions (nreps), threshold of 2 (threshold), and a drift rate of 0.1 (drift).
+Create an object named hard_task with the exact same parameters, but with a drift rate of 0.01.
+Use summary() or table() to inspect how many errors (response -1) occurred in each condition.
+
+```{r}
+# Creation of both tasks simulation
+easy_task <- simulate_ddm(500, 3000, 0.1, 1, 2)
+hard_task <- simulate_ddm(500, 3000, 0.01, 1, 2)
+
+#Summary of both tasks
+summary(easy_task)
+summary(hard_task)
+
+
+
+```
+
+#Open Question 1:
+Look at the output from Task 3. How did the change in Drift Rate (v) affect accuracy? Explain the intuition behind this using the concepts of "Signal" and "Noise"
+
+
+##Part 3: The Speed-Accuracy Tradeoff
+Now, let's examine how the subject's strategy affects performance, while keeping the task difficulty constant.
+
+
+
+#Task 4:
+Run a new simulation named cautious_subject. Use drift = 0.03 and threshold = 5.
+Run another simulation named impulsive_subject. Use drift = 0.03 and threshold = 1.
+Use ggplot to create two histograms of the Reaction Times (latencies)—one for each subject. (Hint: Use xlim(0, 600) in your plots to ensure both graphs share the same scale for easy comparison).
+
+```{r}
+# Creation of both patients simulation
+cautious_subject <- simulate_ddm(500, 3000, 0.03, 1, 5)
+impulsive_subject <- simulate_ddm(500, 3000, 0.03, 1, 1)
+
+# Creating cautious subject's histogram
+ggplot(data = cautious_subject, aes(x = latencies)) +
+  geom_histogram(binwidth = 10, fill = "skyblue", color = "black") +
+  labs(title = "Reaction Times: Cautious Subject (Threshold = 5)",
+       x = "Reaction Time (Latencies)",
+       y = "Count") +
+  xlim(0, 600) +
+  theme_minimal()
+
+# Creating impulsive subject's histogram
+ggplot(data = impulsive_subject, aes(x = latencies)) +
+  geom_histogram(binwidth = 10, fill = "salmon", color = "black") +
+  labs(title = "Reaction Times: Impulsive Subject (Threshold = 1)",
+       x = "Reaction Time (Latencies)",
+       y = "Count") +
+  xlim(0, 600) +
+  theme_minimal()
+
+
+
+```
+
+#Task 5 (Data Analysis with dplyr):
+Use dplyr functions to calculate the average reaction time (mean_rt) and the accuracy rate (accuracy) for both cautious_subject and impulsive_subject. (Hint: You can group by responses or simply summarize the entire dataset).
+
+```{r}
+# Calculating the average response time for our cautious subject
+cautious_stats <- cautious_subject %>%
+  summarise(
+    mean_rt = mean(latencies),             
+    accuracy = mean(responses == 1)        
+  )%>%
+  mutate(Subject_Type = "Cautious (Threshold 5)")
+print(cautious_stats)
+
+
+# Calculating the average response time for our impulsive subject
+impulsive_stats <- impulsive_subject %>%
+  summarise(
+    mean_rt = mean(latencies),
+    accuracy = mean(responses == 1)
+  )%>%
+  mutate(Subject_Type = "Impulsive (Threshold 1)")
+
+print(impulsive_stats)
+```
+
+#Open Question 2:
+The impulsive subject was significantly faster. What was the "price" they paid for this speed? Explain how lowering the threshold (a) leads to this result within the DDM framework.
+
+
+##Part 4: Non-Decision Time
+So far, the reaction time in our simulations represented only the "Decision Time" (pure thought). In reality, it takes time to visually perceive the stimulus and physically press the button.
+
+#Task 6:
+Use the cautious_subject data from Task 4.
+Use mutate to add a new column named total_rt. This column should be equal to latencies plus 40 time units (representing t_0).
+Display the first 6 rows of the updated table using head().
+
+```{r}
+# Adding new column to cautious subject's data
+cautious_subject <- cautious_subject %>%
+  mutate(total_rt = latencies + 40)
+
+# Showing the first 6 rows of the table
+head(cautious_subject)
+```
+
+#Open Question 3 (Integration):
+A researcher is testing two participants in an experiment:
+- Participant A: A young, tired student.
+- Participant B: An alert, elderly person.The researcher discovers that their Total Reaction Times are identical (e.g., average of 800ms).Is it possible that their cognitive processes are completely different? Propose an explanation using the parameters v (Drift Rate) and t_0 (Non-Decision Time) to explain how they arrived at the same result through different mechanisms.
+
+
+
+
+
+## Part 5: Visualizing the Mechanism (5 Points Bonus)
+
+To fully understand your answer to Question 3, let's visualize the decision paths of the two participants. We want to create a graph that shows exactly how they reached the decision boundary.
+
+#Step 1: Load the Helper Function
+Run the code block below. It creates a function called `get_one_trial_path`.
+This function simulates a single trial and returns a data frame ready for plotting.
+Note: You do not need to change this code, just run it.
+
+```{r}
+get_one_trial_path <- function(drift, sddm, threshold, t0, label) {
+  # 1. Create the Non-Decision Time (flat line at 0)
+  dead_time <- rep(0, t0)
+  
+  # 2. Create the Decision Process (Random Walk)
+  # Simulate enough steps to likely reach threshold
+  sim_steps <- 1000 
+  steps <- rnorm(sim_steps, mean = drift, sd = sddm)
+  decision_process <- cumsum(steps)
+  
+  # 3. Combine them
+  evidence <- c(dead_time, decision_process)
+  
+  # 4. Return as a Data Frame
+  data.frame(
+    Time = 1:length(evidence),
+    Evidence = evidence,
+    Participant = label
+  )
+}
+```
+
+
+#Step 2: 
+Generate the Data Use the function get_one_trial_path to create data for the two participants from Question 3:
+
+- Participant A (Young/Tired): High drift (0.08), High t0 (400), threshold 2. Label: "Young & Tired".
+
+- Participant B (Elderly/Alert): Low drift (0.025), Low t0 (50), threshold 2. Label: "Elderly & Alert".
+
+Assign the results to two variables (e.g., df_young and df_elderly), and then combine them into one data frame using rbind().
+
+```{r}
+# Assigning values to each patient (I switched them so they fit out model)
+df_elderly <- get_one_trial_path(0.08, 1, 2, 400, "Elderly & Alert")
+df_young <- get_one_trial_path(0.025, 1, 2, 50, "Young & Tired")
+
+# Combining the two data frames
+combined_data <- rbind(df_young, df_elderly)
+
+```
+
+#Step 3: Plot with ggplot2
+Use ggplot to visualize the combined data.
+Map Time to x, Evidence to y, and Participant to color.
+Use geom_line(size = 1).
+Add horizontal dashed lines at y = 2 and y = -2 (the boundaries).
+Limit the X-axis to show the relevant timeframe (e.g., xlim(0, 1000)).
+
+```{r}
+# Creating the plot for both patients
+ggplot(data = combined_data, aes(x = Time, y = Evidence, color = Participant)) +
+  geom_line(size = 1) +
+
+  geom_hline(yintercept = 2, linetype = "dashed", color = "black") +
+  geom_hline(yintercept = -2, linetype = "dashed", color = "black") +
+  
+  xlim(0, 1000) +
+  
+  labs(title = "Decision Process: Young vs. Elderly",
+       y = "Accumulated Evidence",
+       x = "Time (ms)") +
+  theme_minimal()
+```
