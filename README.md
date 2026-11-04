@@ -39,10 +39,3 @@ When running chunks manually, set the working directory to the notebook's folder
 
 Only datasets used by these assignments are included. Unrelated experimental datasets and instructor tutorial materials are outside this repository's scope.
 
-## Review notes
-
-These are coursework submissions, with supplied prompts and starter material retained alongside the completed code. Hebrew explanatory text has been translated into English; executable R chunks are unchanged. Personal identification numbers have been removed.
-
-All notebook CSV references were checked against the included files, and executable R chunks were compared with the original sources. The notebooks have not been execution-tested in this environment because an R runtime was unavailable. Random simulations are not fixed to a shared seed and may produce different outputs across runs.
-
-The RL assignment fits the Reactive rows together and uses unconstrained optimization, as in the original submission. It should be read as a course implementation rather than a validated participant-level inference pipeline. The final discussion prompts are retained as prompts, not presented as completed written conclusions.
